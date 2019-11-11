@@ -1,4 +1,6 @@
 
+import random
+import numpy as np
 from gym import Env, spaces
 
 # (nodeIdA,nodeIdB,timeDistanceBetween)
@@ -14,6 +16,8 @@ simpleTestGraph = {
             ),
         "maxE":3,
         }
+
+
 
 class Truckenv(Env):
     """
@@ -31,28 +35,115 @@ class Truckenv(Env):
         reward_range: A tuple corresponding to the min and max possible rewards
     Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
     """
-    def __init__(self,trucks=1,jobs=3,graph=simpleTestGraph):
+    def __init__(self,trucks=2,jobs=3,graph=simpleTestGraph):
 
         self.nTrucks=trucks
         self.nJobs=jobs
         self.graph=graph
+        # transitions: {fromNodeId:[(toNodeId,timecost),],}
+        self.transitions = {nodeId:[(0,0),] for nodeId in range(1,self.graph["N"]+1)}
+        for edge in self.graph["E"]:
+            #add go from node a to node b transition
+            self.transitions[edge[0]].append((edge[1],edge[2]))
+            #add go from node b to node a transition
+            self.transitions[edge[1]].append((edge[0],edge[2]))
+        # fill the rest of the options for movement with return to last node
+        for key,val in self.transitions.items():
+            for i in range(self.graph["maxE"]+1-len(val)):
+                self.transitions[key].append((0,0))
 
-        self.action_space = spaces.MultiDiscrete((self.graph["maxE"]+3,)*self.nTrucks)
+        self.action_space = spaces.MultiDiscrete((self.graph["maxE"]+4,)*self.nTrucks)
         self.observation_space = spaces.MultiDiscrete((self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
 
-        self.trucks=nuply array of a good size, not too big, don't want to be wasteful 'eh?
+        # (0:location,    1:driving to id,    2:driven dist,    3:job carried+1)
+        self.trucks = np.array(((1,0,0,-1),)*self.nTrucks)
+        # (0:origin,    1:destination,    2:status)
+        # status is 0:new job waiting, >0:truck carried by+1
+        self.jobs = np.array(((-2,-2,-2),)*self.nJobs)
 
-    def step(self,action):
+    def getJobIndexAt(self,locationId):
+        for i,job in enumerate(self.jobs):
+            if job[0] == locationId:
+                return(i)
+        return(None)
 
+    def newJob(self):
+        job=[0,0,-1]
+        job[0]=random.randint(1,self.graph["N"])
+        while(True):
+            job[1]=random.randint(1,self.graph["N"])
+            if(job[0]!=job[1]):
+                break
+        return(job)
+
+    def step(self,actions):
+        reward=0
+        for trucki, truck in enumerate(self.trucks):
+            # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried+1)
+            action = actions[trucki]
+            #return to last node
+            if(action==0):
+                if(truck[2]>0):
+                    truck[2] -= 1
+            #pickup
+            elif(action==1):
+                jobi = self.getJobIndexAt(truck[0])
+                job = self.jobs[jobi]
+                if(jobi!=None and job[2]==-1 and truck[3]==-1):
+                    print(self.trucks,self.jobs)
+                    job[2] = trucki
+                    truck[3] = jobi
+                    print("PICKUP!!!!!!!!!!!!")
+                    print(self.trucks,self.jobs)
+            #dropoff
+            elif(action==2):
+                if(self.jobs[truck[3]][1]==truck[0]):
+                    print(self.trucks,self.jobs)
+                    ###success!!!!!!!!!!!!!
+                    reward += 1
+                    self.jobs[truck[3]] = self.newJob()
+                    truck[3]=-1
+                    print("WIN!!!!!!!!!!!!!!!!!!!!!!!!!")
+                    print(self.trucks,self.jobs)
+            #move
+            else:
+                destinationId, timecost = self.transitions[truck[0]][action-3]
+                if(destinationId == 0):
+                    # we don't actualy move to position 0, it just means to hold where we are
+                    continue
+                elif(destinationId == truck[1]):
+                    if(truck[2]==timecost):
+                        truck[0]=destinationId
+                        truck[2]=0
+                    else:
+                        truck[2] += 1
+                else:
+                    if(truck[2]==0):
+                        truck[1]=destinationId
+                    else:
+                        truck[2] -= 1
+        return((self.trucks,self.jobs),reward,False,{})
+
+    def reset(self):
+        # set trucks back to id 1
+        self.trucks = np.array(((1,0,0,0),)*self.nTrucks)
+        # make random jobs
+        for i in range(self.nJobs):
+            self.jobs[i] = self.newJob()
+        return((self.trucks,self.jobs))
 
 if (__name__=="__main__"):
     #env = gym.make("trucks-v0")
     env = Truckenv()
-    for i_episode in range(20):
+    reward = 0
+    for i_episode in range(1):
         observation = env.reset()
-        for t in range(100):
+        for t in range(10000):
             #env.render()
-            #print(observation)
+            if(reward):
+                print("YAAYYYYYY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print(observation, reward)
+                print("@ timestep {}".format(t))
             action = env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
