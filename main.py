@@ -40,6 +40,7 @@ class Truckenv(Env):
         self.nTrucks=trucks
         self.nJobs=jobs
         self.graph=graph
+
         # transitions: {fromNodeId:[(toNodeId,timecost),],}
         self.transitions = {nodeId:[(0,0),] for nodeId in range(1,self.graph["N"]+1)}
         for edge in self.graph["E"]:
@@ -47,18 +48,18 @@ class Truckenv(Env):
             self.transitions[edge[0]].append((edge[1],edge[2]))
             #add go from node b to node a transition
             self.transitions[edge[1]].append((edge[0],edge[2]))
-        # fill the rest of the options for movement with return to last node
+        # fill the rest of the options with the null action "hold"
         for key,val in self.transitions.items():
             for i in range(self.graph["maxE"]+1-len(val)):
                 self.transitions[key].append((0,0))
 
         self.action_space = spaces.MultiDiscrete((self.graph["maxE"]+4,)*self.nTrucks)
         self.observation_space = spaces.MultiDiscrete((self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
-
-        # (0:location,    1:driving to id,    2:driven dist,    3:job carried+1)
+        
+        # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried)
         self.trucks = np.array(((1,0,0,-1),)*self.nTrucks)
-        # (0:origin,    1:destination,    2:status)
-        # status is 0:new job waiting, >0:truck carried by+1
+        # Job: (0:origin,    1:destination,    2:status)
+        # status is 0:new job waiting, >0:truck carried by
         self.jobs = np.array(((-2,-2,-2),)*self.nJobs)
 
     def getJobIndexAt(self,locationId):
@@ -79,7 +80,9 @@ class Truckenv(Env):
     def step(self,actions):
         reward=0
         for trucki, truck in enumerate(self.trucks):
-            # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried+1)
+            # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried)
+            # Job: (0:origin,    1:destination,    2:status)
+            # status is 0:new job waiting, >0:truck carried by
             action = actions[trucki]
             #return to last node
             if(action==0):
@@ -90,21 +93,38 @@ class Truckenv(Env):
                 jobi = self.getJobIndexAt(truck[0])
                 job = self.jobs[jobi]
                 if(jobi!=None and job[2]==-1 and truck[3]==-1):
-                    print(self.trucks,self.jobs)
+                    print("======================")
+                    print("PICKUP!")
+                    print("actions:")
+                    print(actions)
+                    print("prior state:")
+                    print(self.trucks)
+                    print(self.jobs)
                     job[2] = trucki
                     truck[3] = jobi
-                    print("PICKUP!!!!!!!!!!!!")
-                    print(self.trucks,self.jobs)
+                    print("new state:")
+                    print(self.trucks)
+                    print(self.jobs)
+                    print("======================")
             #dropoff
             elif(action==2):
-                if(self.jobs[truck[3]][1]==truck[0]):
-                    print(self.trucks,self.jobs)
+                    # is carrying a job and that jobs destination is where the truck is.
+                if(truck[3]!=-1 and self.jobs[truck[3]][1]==truck[0]):
+                    print("======================")
+                    print("WIN!")
+                    print("actions:")
+                    print(actions)
+                    print("prior state:")
+                    print(self.trucks)
+                    print(self.jobs)
                     ###success!!!!!!!!!!!!!
                     reward += 1
                     self.jobs[truck[3]] = self.newJob()
-                    truck[3]=-1
-                    print("WIN!!!!!!!!!!!!!!!!!!!!!!!!!")
-                    print(self.trucks,self.jobs)
+                    self.trucks[trucki][3]=-1
+                    print("new state:")
+                    print(self.trucks)
+                    print(self.jobs)
+                    print("======================")
             #move
             else:
                 destinationId, timecost = self.transitions[truck[0]][action-3]
@@ -135,19 +155,20 @@ class Truckenv(Env):
 if (__name__=="__main__"):
     #env = gym.make("trucks-v0")
     env = Truckenv()
-    reward = 0
     for i_episode in range(1):
+        reward = 0
+        rewardSum = 0
         observation = env.reset()
         for t in range(10000):
             #env.render()
+            rewardSum+=reward
             if(reward):
-                print("YAAYYYYYY!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                print(observation, reward)
                 print("@ timestep {}".format(t))
             action = env.action_space.sample()
             observation, reward, done, info = env.step(action)
             if done:
                 print("Episode finished after {} timesteps".format(t+1))
                 break
+        print("After {} timesteps random agent exited with {} reward".format(t+1,rewardSum))
     env.close()
 
