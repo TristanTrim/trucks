@@ -3,8 +3,13 @@ import random
 import numpy as np
 from gym import Env, spaces
 
-# (nodeIdA,nodeIdB,timeDistanceBetween)
-# A < B .`. there is no duplication
+# Structure of a graph for use in Truckenv:
+# "N": number of nodes, eg: 3 -> Graph consists of Nodes 1, 2, and 3.
+# "E": List of edge connections and the timecost between them:
+#     (nodeIdA,nodeIdB,timeDistanceBetween)
+#       as a convention: A < B
+# "maxE": The most edges that will be found attached to any one node.
+#       Used for figuring out how large the action-space needs to be.
 simpleTestGraph = {
         "N":5,
         "E":(
@@ -17,24 +22,24 @@ simpleTestGraph = {
         "maxE":3,
         }
 
-
-
 class Truckenv(Env):
     """
-    Trucks! Gotta have em, gotta send em on jobs!
+    Trucks! Gotta have em, gotta send em on jobs! Pick up and drop off!
 
     The main API methods that users of this class need to know are:
         step
         reset
-        render
-        close
-        seed
+        render - not yet implemented
+        close - not yet implemented
+        seed - not yet implemented
+
     And set the following attributes:
         action_space: The Space object corresponding to valid actions
         observation_space: The Space object corresponding to valid observations
         reward_range: A tuple corresponding to the min and max possible rewards
     Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
     """
+
     def __init__(self,trucks=2,jobs=3,graph=simpleTestGraph):
 
         self.nTrucks=trucks
@@ -62,13 +67,16 @@ class Truckenv(Env):
         # status is 0:new job waiting, >0:truck carried by
         self.jobs = np.array(((-2,-2,-2),)*self.nJobs)
 
+
     def getJobIndexAt(self,locationId):
+        """ Helper function, returns the index of the job found at a given location, or None """
         for i,job in enumerate(self.jobs):
             if job[0] == locationId:
                 return(i)
         return(None)
 
     def newJob(self):
+        """ Helper function, generates and returns a new, valid, job for insertion into job index """
         job=[0,0,-1]
         job[0]=random.randint(1,self.graph["N"])
         while(True):
@@ -76,6 +84,7 @@ class Truckenv(Env):
             if(job[0]!=job[1]):
                 break
         return(job)
+
 
     def step(self,actions):
         reward=0
@@ -144,6 +153,7 @@ class Truckenv(Env):
                         truck[2] -= 1
         return((self.trucks,self.jobs),reward,False,{})
 
+
     def reset(self):
         # set trucks back to id 1
         self.trucks = np.array(((1,0,0,0),)*self.nTrucks)
@@ -152,8 +162,9 @@ class Truckenv(Env):
             self.jobs[i] = self.newJob()
         return((self.trucks,self.jobs))
 
+
 if (__name__=="__main__"):
-    #env = gym.make("trucks-v0")
+    #env = gym.make("trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     env = Truckenv()
     for i_episode in range(1):
         reward = 0
