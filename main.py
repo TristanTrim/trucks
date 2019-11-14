@@ -58,10 +58,18 @@ class Truckenv(Env):
             for i in range(self.graph["maxE"]+1-len(val)):
                 self.transitions[key].append((0,0))
 
-        self.action_space = spaces.MultiDiscrete((self.graph["maxE"]+4,)*self.nTrucks)
+        self.action_space = spaces.MultiDiscrete(((self.graph["maxE"]+4,)*self.nTrucks))
         self.observation_space = spaces.MultiDiscrete((self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
+        print(self.action_space.shape)
+        print(self.action_space.dtype)
+        print(self.observation_space.shape)
+        print(self.observation_space.dtype)
         
         # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried)
+        #       location is id of node counting from 1 to # of nodes
+        #       driving to id is the id of the adjacent node the truck is driving to
+        #       driven dist is how far along the truck has driven from the previous node to the current node
+        #       job carried is the id of the job counting from 1 to # of jobs
         self.trucks = np.array(((1,0,0,-1),)*self.nTrucks)
         # Job: (0:origin,    1:destination,    2:status)
         # status is 0:new job waiting, >0:truck carried by
@@ -162,24 +170,35 @@ class Truckenv(Env):
             self.jobs[i] = self.newJob()
         return((self.trucks,self.jobs))
 
+def doRandomPolicy(env,max_steps=1000):
+    reward = 0
+    rewardSum = 0
+    observation = env.reset()
+    for t in range(max_steps):
+        #env.render()
+        rewardSum+=reward
+        if(reward):
+            print("@ timestep {}".format(t))
+        action = env.action_space.sample()
+        observation, reward, done, info = env.step(action)
+        if done:
+            print("Episode finished after {} timesteps".format(t+1))
+            break
+    print("After {} timesteps: random agent exited with {} reward".format(t+1,rewardSum))
+
+class valueIterationAgent():
+    """yup, hard coded cause I hooked up the observation and action space wrong in my env..."""
+    def __init__(self, environment):
+        self.environment = environment
+        self.stateActionValues ### AHHH STATE ACTION VALUES!?!?!?! THIS ISN"T VALUE ITERATION!!!
+
 
 if (__name__=="__main__"):
-    #env = gym.make("trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
+    #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     env = Truckenv()
     for i_episode in range(1):
-        reward = 0
-        rewardSum = 0
-        observation = env.reset()
-        for t in range(10000):
-            #env.render()
-            rewardSum+=reward
-            if(reward):
-                print("@ timestep {}".format(t))
-            action = env.action_space.sample()
-            observation, reward, done, info = env.step(action)
-            if done:
-                print("Episode finished after {} timesteps".format(t+1))
-                break
-        print("After {} timesteps random agent exited with {} reward".format(t+1,rewardSum))
+        #doRandomPolicy(env)
+        agt = valueIterationAgent(env)
+        agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
