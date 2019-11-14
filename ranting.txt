@@ -1,0 +1,44 @@
+Here you might just find me ranting incoherently about the gym standard and
+the agent standardization that I would like to have.
+
+So, it turns out that gym INTENTIONALLY doesn't have standards for the agent
+so that people can implement them with flexible {batch vs online}
+methedologies... but... why not just have an open standard for batch and
+online and document and add any other methods as people come up with them?
+
+
+How do I want to use an agent?
+
+agt = gym.agent("policy-iteration", actionSpace, observationSpace)
+#action = agt.choose()
+action = agent.act(ob1) # says gym
+obs,rew,don,debug = env.step(action)
+agt.observe(obs,rew)
+
+
+maybe a wrapper??:
+
+situation = gym.situation(agt,env)
+situation.train()
+situation.render()
+
+
+situation.rank_agent or eval_agent...
+situation.automagically send gym evaluation?? <-- no this should be done when
+a new env or agt is registered with gym... the gym server should reach out
+using the STANDARD interface for agents and trial it.
+
+
+Or the agent is the wrapper:   (ehhh... I'm not as into it)
+
+agt = gym.agent("policy-iteration",env)
+
+but then multi agent systems wouldn't work... I suppose nobody is talking
+about those, but I don't really want to discount them. Ehhh.
+
+
+I like the situation based model, and in any case, the situation is going to
+contain code that looks like the original idea... So maybe you could define a
+situation based on a pre instantiated env & agt, or the string spec for them.
+
+
