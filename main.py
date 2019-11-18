@@ -3,6 +3,7 @@ import random
 import numpy as np
 from gym import Env, spaces
 
+
 # Structure of a graph for use in Truckenv:
 # "N": number of nodes, eg: 3 -> Graph consists of Nodes 1, 2, and 3.
 # "E": List of edge connections and the timecost between them:
@@ -40,7 +41,7 @@ class Truckenv(Env):
     Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
     """
 
-    def __init__(self,trucks=2,jobs=3,graph=simpleTestGraph):
+    def __init__(self,trucks=1,jobs=2,graph=simpleTestGraph):
 
         self.nTrucks=trucks
         self.nJobs=jobs
@@ -189,8 +190,49 @@ def doRandomPolicy(env,max_steps=1000):
 class valueIterationAgent():
     """yup, hard coded cause I hooked up the observation and action space wrong in my env..."""
     def __init__(self, environment):
-        self.environment = environment
-        self.stateActionValues ### AHHH STATE ACTION VALUES!?!?!?! THIS ISN"T VALUE ITERATION!!!
+
+        # Truck: (0:location,    1:driving to id,    2:driven dist,    3:job carried)
+        # Job: (0:origin,    1:destination,    2:status)
+        # status is 0:new job waiting, >0:truck carried by
+
+        self.env = environment
+
+      # nodes = self.env.graph["N"]
+      # nActions = self.env.graph["maxE"]+4 #plus 4 '.' return, pick, drop, hold
+      # nTrucks = self.env.nTrucks
+      # nTruckPos = nodes
+      # nTruckConfigs = nTruckPos**nTrucks #better than nTruck**nTruckPos amIright?
+      # nJobs = self.env.nJobs
+      # nJobPos = nodes*(nodes-1)
+      # nJobConfigs = nJobPos**nJobs 
+      # nStates = nTruckConfigs * nJobConfigs
+      # nStateActions = nActions * nStates # I've coded myself into a dumb corner again! Whatever Don't optimize the system for use with a tabular system. We won't use a tab system for long!
+        #alternatively:
+        nodes = self.env.graph["N"]
+        nActions = self.env.graph["maxE"]+4 #plus 4 '.' return, pick, drop, hold
+        nTrucks = self.env.nTrucks
+        nTruckPos = nodes
+        nTruckConfigs = nTruckPos**nTrucks #better than nTruck**nTruckPos amIright?
+        nOrigins = nodes + nTrucks
+        nDest = nodes
+        nJobs = self.env.nJobs
+        nJobPos = nodes*(nodes-1)
+        nJobConfigs = nJobPos**nJobs 
+        nStates = nTruckConfigs * nJobConfigs
+        print("There are {} distinct observable states... ish".format(nStates))
+        self.stateValues = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
+        self.stateValues.fill(0)
+        print(self.stateValues.shape)
+        print(self.stateValues[tuple(n-1 for n in self.stateValues.shape)])
+        #self.policy = np.array((0,)*nStates)
+        #(self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
+
+    def obsFromState(self,state):
+        pass
+
+    def train(self,**kwargs):
+        for i in range(1000):
+            pass
 
 
 if (__name__=="__main__"):
@@ -199,6 +241,7 @@ if (__name__=="__main__"):
     for i_episode in range(1):
         #doRandomPolicy(env)
         agt = valueIterationAgent(env)
+        agt.load_stateValues("values.json")
         agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
