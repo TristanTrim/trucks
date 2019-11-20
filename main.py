@@ -22,6 +22,13 @@ simpleTestGraph = {
             ),
         "maxE":3,
         }
+twoNodeGraph = {
+        "N":2,
+        "E":(
+            (1,2,1),
+            ),
+        "maxE":1,
+        }
 
 class Truckenv(Env):
     """
@@ -41,7 +48,7 @@ class Truckenv(Env):
     Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
     """
 
-    def __init__(self,trucks=1,jobs=2,graph=simpleTestGraph):
+    def __init__(self,trucks=1,jobs=1,graph=simpleTestGraph):
 
         self.nTrucks=trucks
         self.nJobs=jobs
@@ -209,17 +216,17 @@ class valueIterationAgent():
       # nStateActions = nActions * nStates # I've coded myself into a dumb corner again! Whatever Don't optimize the system for use with a tabular system. We won't use a tab system for long!
         #alternatively:
         nodes = self.env.graph["N"]
-        nActions = self.env.graph["maxE"]+4 #plus 4 '.' return, pick, drop, hold
+        nActions = self.env.graph["maxE"]+4 #move along one of the possible edges, or chose from the 4 options: return, pick, drop, hold
         nTrucks = self.env.nTrucks
         nTruckPos = nodes
         nTruckConfigs = nTruckPos**nTrucks #better than nTruck**nTruckPos amIright?
-        nOrigins = nodes + nTrucks
-        nDest = nodes
         nJobs = self.env.nJobs
-        nJobPos = nodes*(nodes-1)
+        nOrigins = nodes + nTrucks - 1 ##minus one because jobs never go from where they are to where they are.
+        nDest = nodes
+        nJobPos = nOrigins*(nDest)
         nJobConfigs = nJobPos**nJobs 
         nStates = nTruckConfigs * nJobConfigs
-        print("There are {} distinct observable states... ish".format(nStates))
+        print("There are {} distinct observable states.".format(nStates))
         self.stateValues = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
         self.stateValues.fill(0)
         print(self.stateValues.shape)
@@ -237,11 +244,12 @@ class valueIterationAgent():
 
 if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
-    env = Truckenv()
+    env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
+    #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     for i_episode in range(1):
-        #doRandomPolicy(env)
-        agt = valueIterationAgent(env)
-        agt.load_stateValues("values.json")
-        agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
+        doRandomPolicy(env)
+       # agt = valueIterationAgent(env)
+       # agt.load_stateValues("values.json")
+       # agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
