@@ -1,4 +1,5 @@
 
+from copy import deepcopy
 import random
 import numpy as np
 from gym import Env, spaces
@@ -58,6 +59,7 @@ class Truckenv(Env):
         self.nTrucks=trucks
         self.nJobs=jobs
         self.graph=graph
+        self.nActions = self.graph["maxE"]+4
 
         # transitions: {fromNodeId:[(toNodeId,timecost),],}
         self.transitions = {nodeId:[(0,0),] for nodeId in range(1,self.graph["N"]+1)}
@@ -71,10 +73,12 @@ class Truckenv(Env):
             for i in range(self.graph["maxE"]+1-len(val)):
                 self.transitions[key].append((0,0))
 
-        self.action_space = spaces.MultiDiscrete(((self.graph["maxE"]+4,)*self.nTrucks))
+        self.action_space = spaces.MultiDiscrete(((self.nActions,)*self.nTrucks))
         self.observation_space = spaces.MultiDiscrete((self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
         print(self.action_space.shape)
         print(self.action_space.dtype)
+        self.generateActionsList()
+        print("actions: {}".format(self.actions))
         print(self.observation_space.shape)
         print(self.observation_space.dtype)
         
@@ -183,6 +187,14 @@ class Truckenv(Env):
             self.jobs[i] = self.newJob()
         return((self.trucks,self.jobs))
 
+    def generateActionsList(self):
+        actions =[]
+        for a in range(self.nActions):
+            actions+=[[a]]
+        for t in range(self.nTrucks-1):
+            actions = [ x+[a] for a in range(self.nActions) for x in actions ]
+        self.actions = tuple(tuple(x) for x in actions)
+
 def doRandomPolicy(env,max_steps=1000):
     reward = 0
     rewardSum = 0
@@ -204,7 +216,7 @@ def doRandomPolicy(env,max_steps=1000):
 ## AGENT ##
 ###########
 
-class valueIterationAgent():
+class Agent():
     """yup, hard coded cause I hooked up the observation and action space wrong in my env..."""
     def __init__(self, environment):
 
@@ -213,6 +225,9 @@ class valueIterationAgent():
         # status is 0:new job waiting, >0:truck carried by
 
         self.env = environment
+
+        self.gamma = 0.9
+        self.alpha = 0.1
 
         nodes = self.env.graph["N"]
         nActions = self.env.graph["maxE"]+4 #move along one of the possible edges, or chose from the 4 options: return, pick, drop, hold
@@ -229,8 +244,13 @@ class valueIterationAgent():
 
         self.stateValues = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
         self.stateValues.fill(0)
+        print("%d bytes" % (self.stateValues.size * self.stateValues.itemsize))
+        print("%d kilobytes" % (self.stateValues.size * self.stateValues.itemsize / 1024))
+        print("%d megabytes" % (self.stateValues.size * self.stateValues.itemsize /1024 /1024))
         print(self.stateValues.shape)
         print(self.stateValues[tuple(n-1 for n in self.stateValues.shape)])
+        self.policy = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
+        self.policy.fill(0)
         #self.policy = np.array((0,)*nStates)
         #(self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
 
@@ -249,7 +269,25 @@ class valueIterationAgent():
             else:
                 origin=state[1][i][0]-2 +self.env.nTrucks # -2 because truck thing and origin never = destination
             obs[1]+=[[origin,state[1][i][1]]]
-        return (obs)
+        return (tuple(obs))
+
+
+    def bestAction(self):
+        best = 0
+        bestAction = 0
+        for action in self.env.actions:
+            testEnv = deepcopy(self.env)
+            observation, reward, done, info = testEnv.step(action)
+            agtObs = self.obsFromState(observation)
+            agtObsFlat = [x-1 for x in agtObs[0]]
+            for x in agtObs[1]:
+                agtObsFlat+=[x[0],x[1]-1]
+            stateActionValue = reward + self.gamma*self.stateValues[tuple(agtObsFlat)]
+            if (stateActionValue > best):
+                best = stateActionValue
+                bestAction = action
+        return(bestAction)
+
 
     def train(self,**kwargs):
         for i in range(1000):
@@ -264,15 +302,17 @@ if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
     #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
+    #env = Truckenv(trucks=2,jobs=3,graph=simpleTestGraph)
     for i_episode in range(1):
         if False:
             doRandomPolicy(env)
         if True:
-            agt = valueIterationAgent(env)
+            agt = Agent(env)
             observation = env.reset()
-            for i in range(100):
+            for i in range(1):
                 print(observation)
                 print(agt.obsFromState(observation))
+                action = agt.bestAction()
                 action = env.action_space.sample()
                 observation, reward, done, info = env.step(action)
             #agt.load_stateValues("values.json")
