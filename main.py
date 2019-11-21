@@ -247,9 +247,11 @@ if (__name__=="__main__"):
     env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
     #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     for i_episode in range(1):
-        doRandomPolicy(env)
-       # agt = valueIterationAgent(env)
-       # agt.load_stateValues("values.json")
-       # agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
+        if False:
+            doRandomPolicy(env)
+        if True:
+            agt = valueIterationAgent(env)
+            agt.load_stateValues("values.json")
+            agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
