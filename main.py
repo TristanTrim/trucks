@@ -30,6 +30,11 @@ twoNodeGraph = {
         "maxE":1,
         }
 
+
+#######
+# Env #
+#######
+
 class Truckenv(Env):
     """
     Trucks! Gotta have em, gotta send em on jobs! Pick up and drop off!
@@ -194,6 +199,11 @@ def doRandomPolicy(env,max_steps=1000):
             break
     print("After {} timesteps: random agent exited with {} reward".format(t+1,rewardSum))
 
+
+###########
+## AGENT ##
+###########
+
 class valueIterationAgent():
     """yup, hard coded cause I hooked up the observation and action space wrong in my env..."""
     def __init__(self, environment):
@@ -241,13 +251,16 @@ class valueIterationAgent():
         for i in range(1000):
             pass
 
+########
+# Main #
+########
 
 if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
     #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     for i_episode in range(1):
-        if False:
+        if True:
             doRandomPolicy(env)
         if True:
             agt = valueIterationAgent(env)
