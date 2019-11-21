@@ -245,9 +245,9 @@ class valueIterationAgent():
             if(state[1][i][2]!=-1):
                 origin=state[1][i][2]
             elif (state[1][i][0]<state[1][i][1]):
-                origin=state[1][i][0]
+                origin=state[1][i][0]-1 +self.env.nTrucks # -1 because the id is offset 0 if there is one truck
             else:
-                origin=state[1][i][0]-1
+                origin=state[1][i][0]-2 +self.env.nTrucks # -2 because truck thing and origin never = destination
             obs[1]+=[[origin,state[1][i][1]]]
         return (obs)
 
@@ -262,8 +262,8 @@ class valueIterationAgent():
 
 if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
-    #env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
-    env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
+    env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
+    #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     for i_episode in range(1):
         if False:
             doRandomPolicy(env)
