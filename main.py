@@ -177,7 +177,7 @@ class Truckenv(Env):
 
     def reset(self):
         # set trucks back to id 1
-        self.trucks = np.array(((1,0,0,0),)*self.nTrucks)
+        self.trucks = np.array(((1,0,0,-1),)*self.nTrucks)
         # make random jobs
         for i in range(self.nJobs):
             self.jobs[i] = self.newJob()
@@ -214,17 +214,6 @@ class valueIterationAgent():
 
         self.env = environment
 
-      # nodes = self.env.graph["N"]
-      # nActions = self.env.graph["maxE"]+4 #plus 4 '.' return, pick, drop, hold
-      # nTrucks = self.env.nTrucks
-      # nTruckPos = nodes
-      # nTruckConfigs = nTruckPos**nTrucks #better than nTruck**nTruckPos amIright?
-      # nJobs = self.env.nJobs
-      # nJobPos = nodes*(nodes-1)
-      # nJobConfigs = nJobPos**nJobs 
-      # nStates = nTruckConfigs * nJobConfigs
-      # nStateActions = nActions * nStates # I've coded myself into a dumb corner again! Whatever Don't optimize the system for use with a tabular system. We won't use a tab system for long!
-        #alternatively:
         nodes = self.env.graph["N"]
         nActions = self.env.graph["maxE"]+4 #move along one of the possible edges, or chose from the 4 options: return, pick, drop, hold
         nTrucks = self.env.nTrucks
@@ -237,6 +226,7 @@ class valueIterationAgent():
         nJobConfigs = nJobPos**nJobs 
         nStates = nTruckConfigs * nJobConfigs
         print("There are {} distinct observable states.".format(nStates))
+
         self.stateValues = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
         self.stateValues.fill(0)
         print(self.stateValues.shape)
@@ -245,11 +235,26 @@ class valueIterationAgent():
         #(self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
 
     def obsFromState(self,state):
-        pass
+        obs = [[],[]]
+        # trucks
+        for i in range(0,self.env.nTrucks):
+            obs[0]+=[state[0][i][0]]
+        # jobs
+        for i in range(0,self.env.nJobs):
+            origin = None
+            if(state[1][i][2]!=-1):
+                origin=state[1][i][2]
+            elif (state[1][i][0]<state[1][i][1]):
+                origin=state[1][i][0]
+            else:
+                origin=state[1][i][0]-1
+            obs[1]+=[[origin,state[1][i][1]]]
+        return (obs)
 
     def train(self,**kwargs):
         for i in range(1000):
             pass
+
 
 ########
 # Main #
@@ -257,14 +262,20 @@ class valueIterationAgent():
 
 if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
-    env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
-    #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
+    #env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
+    env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     for i_episode in range(1):
-        if True:
+        if False:
             doRandomPolicy(env)
         if True:
             agt = valueIterationAgent(env)
-            agt.load_stateValues("values.json")
-            agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
+            observation = env.reset()
+            for i in range(100):
+                print(observation)
+                print(agt.obsFromState(observation))
+                action = env.action_space.sample()
+                observation, reward, done, info = env.step(action)
+            #agt.load_stateValues("values.json")
+            #agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
