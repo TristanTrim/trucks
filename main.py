@@ -1,4 +1,5 @@
 
+import pickle
 from copy import deepcopy
 import random
 import numpy as np
@@ -323,7 +324,14 @@ class Agent():
 
         return(action)
 
+    def saveStateValues(self,filename):
+        fl = open(filename,'wb')
+        fl.write(self.stateValues.dumps())
+        fl.close()
 
+    def loadStateValues(self,filename):
+        fl = open(filename,'rb')
+        self.stateValues = pickle.load(fl)
 
     def train(self,**kwargs):
         for i in range(1000):
@@ -347,28 +355,31 @@ if (__name__=="__main__"):
         if True:
             agt = Agent(env)
             observation = env.reset()
+            agt.loadStateValues("values.pkl")
             print("### value function")
             print(agt.stateValues)
-            for j in range(10):
+            if False:
+                for j in range(10):
+                    for i in range(100):
+                        #print(observation)
+                        #print(agt.obsFromState(observation))
+                        action = agt.bestAction()# this trains the agent
+                        action = env.action_space.sample()
+                        observation, reward, done, info = env.step(action)
+                    print("### value function")
+                    print(agt.stateValues)
+                laOr = 0
+                lalaOr = 0
+            if True:
                 for i in range(100):
-                    #print(observation)
-                    #print(agt.obsFromState(observation))
-                    action = agt.bestAction()# this trains the agent
-                    action = env.action_space.sample()
+                    obs = agt.obsFromState(observation)
+                    action = agt.bestAction()
+                    #action = env.action_space.sample()
                     observation, reward, done, info = env.step(action)
+                    print("obs: {} reward: {}".format(obs,reward))
                 print("### value function")
                 print(agt.stateValues)
-            laOr = 0
-            lalaOr = 0
-            for i in range(100):
-                obs = agt.obsFromState(observation)
-                action = agt.bestAction()
-                #action = env.action_space.sample()
-                observation, reward, done, info = env.step(action)
-                print("obs: {} reward: {}".format(obs,reward))
-            print("### value function")
-            print(agt.stateValues)
-            #agt.load_stateValues("values.json")
+            agt.saveStateValues("values.pkl")
             #agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
 
