@@ -294,18 +294,28 @@ class Agent():
             testEnv = deepcopy(self.env)
             ## loop until the environment looks different to the agent
             ## TODO: THIS ALGORITHM COULD BE BETTER STREAMLINED
-            for i in range(maxLookahead):
+            if(all(x<4 for x in action)):
                 observation, reward, done, info = testEnv.step(action)
                 newAgtObs = self.stateToObsFlat(observation)
-                if(currAgtObs!=newAgtObs or reward!=0):#why? because it won't work right if it doesn't see the environment change based on its actions
-                    break
+            else:
+                for i in range(maxLookahead):
+                    observation, reward, done, info = testEnv.step(action)
+                    newAgtObs = self.stateToObsFlat(observation)
+                    if(currAgtObs!=newAgtObs or reward!=0):#why? because it won't work right if it doesn't see the environment change based on its actions
+                        break
             ## compare this hypothetical to the other actions
             stateActionValue = reward + self.gamma*self.stateValues[tuple(newAgtObs)]
             if (stateActionValue > best):
                 best = stateActionValue
                 bA = action
+            print("action: {}".format(action))
+            print("reward: {}".format(reward))
+            print("best: {}".format(best))
+            print("bA: {}".format(bA))
         # update current state value based on best action
-        self.stateValues[tuple(currAgtObs)] = best
+        self.stateValues[tuple(currAgtObs)] = self.stateValues[tuple(currAgtObs)] \
+                                        +self.alpha*(best - self.stateValues[tuple(currAgtObs)])
+
 
         return(bA)
 
@@ -352,11 +362,22 @@ if (__name__=="__main__"):
                     observation, reward, done, info = env.step(action)
                 print("### value function")
                 print(agt.stateValues)
+            laOr = 0
+            lalaOr = 0
             for i in range(100):
                 #print(observation)
-                print(agt.obsFromState(observation))
+                obs = agt.obsFromState(observation)
+                print("{} <------------------------------------------------ {}".format(obs,obs[1][0][0]))
+                if(obs[1][0][0]==laOr==lalaOr):#==lalaOr):
+                    print("#####################################################################################")
+                lalaOr = laOr
+                laOr = obs[1][0][0]
+                
                 action = agt.bestAction()
-                print(action)
+                if(action[0]==0):
+                    print("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH ACTION 0 AHHH!!!")
+                else:
+                    print(action)
                 #action = env.action_space.sample()
                 observation, reward, done, info = env.step(action)
             print("### value function")
