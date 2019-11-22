@@ -9,6 +9,7 @@ from gym import Env, spaces
 # "N": number of nodes, eg: 3 -> Graph consists of Nodes 1, 2, and 3.
 # "E": List of edge connections and the timecost between them:
 #     (nodeIdA,nodeIdB,timeDistanceBetween)
+#           timeDistanceBetween MUST be 1 or greater!
 #       as a convention: A < B
 # "maxE": The most edges that will be found attached to any one node.
 #       Used for figuring out how large the action-space needs to be.
@@ -127,55 +128,57 @@ class Truckenv(Env):
                 jobi = self.getJobIndexAt(truck[0])
                 job = self.jobs[jobi]
                 if(jobi!=None and job[2]==-1 and truck[3]==-1):
-                    print("======================")
-                    print("PICKUP!")
-                    print("actions:")
-                    print(actions)
-                    print("prior state:")
-                    print(self.trucks)
-                    print(self.jobs)
+                    if(printPickups):
+                        print("======================")
+                        print("PICKUP!")
+                        print("actions:")
+                        print(actions)
+                        print("prior state:")
+                        print(self.trucks)
+                        print(self.jobs)
                     job[2] = trucki
                     truck[3] = jobi
-                    print("new state:")
-                    print(self.trucks)
-                    print(self.jobs)
-                    print("======================")
+                    if(printPickups):
+                        print("new state:")
+                        print(self.trucks)
+                        print(self.jobs)
+                        print("======================")
             #dropoff
             elif(action==2):
                     # is carrying a job and that jobs destination is where the truck is.
                 if(truck[3]!=-1 and self.jobs[truck[3]][1]==truck[0]):
-                    print("======================")
-                    print("WIN!")
-                    print("actions:")
-                    print(actions)
-                    print("prior state:")
-                    print(self.trucks)
-                    print(self.jobs)
+                    if(printWins):
+                        print("======================")
+                        print("WIN!")
+                        print("actions:")
+                        print(actions)
+                        print("prior state:")
+                        print(self.trucks)
+                        print(self.jobs)
                     ###success!!!!!!!!!!!!!
                     reward += 1
                     self.jobs[truck[3]] = self.newJob()
                     self.trucks[trucki][3]=-1
-                    print("new state:")
-                    print(self.trucks)
-                    print(self.jobs)
-                    print("======================")
+                    if(printWins):
+                        print("new state:")
+                        print(self.trucks)
+                        print(self.jobs)
+                        print("======================")
             #move
             else:
                 destinationId, timecost = self.transitions[truck[0]][action-3]
+                if(truck[2]==0):
+                    truck[1]=destinationId
                 if(destinationId == 0):
                     # we don't actualy move to position 0, it just means to hold where we are
                     continue
                 elif(destinationId == truck[1]):
+                    truck[2] += 1
                     if(truck[2]==timecost):
-                        truck[0]=destinationId
                         truck[2]=0
-                    else:
-                        truck[2] += 1
+                        truck[0]=destinationId
                 else:
-                    if(truck[2]==0):
-                        truck[1]=destinationId
-                    else:
-                        truck[2] -= 1
+                    truck[2] -= 1
         return((self.trucks,self.jobs),reward,False,{})
 
 
@@ -228,6 +231,7 @@ class Agent():
 
         self.gamma = 0.9
         self.alpha = 0.1
+        self.eplislon = .1
 
         nodes = self.env.graph["N"]
         nActions = self.env.graph["maxE"]+4 #move along one of the possible edges, or chose from the 4 options: return, pick, drop, hold
@@ -271,22 +275,48 @@ class Agent():
             obs[1]+=[[origin,state[1][i][1]]]
         return (tuple(obs))
 
+    def stateToObsFlat(self,state):
+        """When indexing a ndarray you need all the truck and job values in one flat list"""
+        obs = self.obsFromState(state)
+        obsFlat = [x-1 for x in obs[0]]
+        for x in obs[1]:
+            obsFlat+=[x[0],x[1]-1]
+        return(obsFlat)
 
-    def bestAction(self):
+    def bestAction(self,maxLookahead=5):
+        # current observation
+        currAgtObs = self.stateToObsFlat((self.env.trucks,self.env.jobs))
+        # setup and find action leading to best new observation
         best = 0
-        bestAction = 0
+        bestAction = self.env.actions[0]
+        reward = 0
         for action in self.env.actions:
             testEnv = deepcopy(self.env)
-            observation, reward, done, info = testEnv.step(action)
-            agtObs = self.obsFromState(observation)
-            agtObsFlat = [x-1 for x in agtObs[0]]
-            for x in agtObs[1]:
-                agtObsFlat+=[x[0],x[1]-1]
-            stateActionValue = reward + self.gamma*self.stateValues[tuple(agtObsFlat)]
+            ## loop until the environment looks different to the agent
+            ## TODO: THIS ALGORITHM COULD BE BETTER STREAMLINED
+            for i in range(maxLookahead):
+                observation, reward, done, info = testEnv.step(action)
+                newAgtObs = self.stateToObsFlat(observation)
+                if(currAgtObs!=newAgtObs or reward!=0):#why? because it won't work right if it doesn't see the environment change based on its actions
+                    break
+            ## compare this hypothetical to the other actions
+            stateActionValue = reward + self.gamma*self.stateValues[tuple(newAgtObs)]
             if (stateActionValue > best):
                 best = stateActionValue
                 bestAction = action
+        # update current state value based on best action
+        self.stateValues[tuple(currAgtObs)] = best
+
         return(bestAction)
+
+    def egreedy(self):
+        if (random.random() > self.eplislon):
+            action = agt.bestAction()
+        else:
+            action = env.action_space.sample()
+
+        return(action)
+
 
 
     def train(self,**kwargs):
@@ -298,6 +328,8 @@ class Agent():
 # Main #
 ########
 
+printPickups = False
+printWins = False
 if (__name__=="__main__"):
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
@@ -309,12 +341,25 @@ if (__name__=="__main__"):
         if True:
             agt = Agent(env)
             observation = env.reset()
-            for i in range(1):
+            print("### value function")
+            print(agt.stateValues)
+            for j in range(10):
+                for i in range(100):
+                    #print(observation)
+                    #print(agt.obsFromState(observation))
+                    action = agt.bestAction()# this trains the agent
+                    action = env.action_space.sample()
+                    observation, reward, done, info = env.step(action)
+                print("### value function")
+                print(agt.stateValues)
+            for i in range(100):
                 print(observation)
                 print(agt.obsFromState(observation))
                 action = agt.bestAction()
-                action = env.action_space.sample()
+                #action = env.action_space.sample()
                 observation, reward, done, info = env.step(action)
+            print("### value function")
+            print(agt.stateValues)
             #agt.load_stateValues("values.json")
             #agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
     env.close()
