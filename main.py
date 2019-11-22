@@ -288,7 +288,7 @@ class Agent():
         currAgtObs = self.stateToObsFlat((self.env.trucks,self.env.jobs))
         # setup and find action leading to best new observation
         best = 0
-        bestAction = self.env.actions[0]
+        bA = self.env.actions[0]
         reward = 0
         for action in self.env.actions:
             testEnv = deepcopy(self.env)
@@ -303,11 +303,11 @@ class Agent():
             stateActionValue = reward + self.gamma*self.stateValues[tuple(newAgtObs)]
             if (stateActionValue > best):
                 best = stateActionValue
-                bestAction = action
+                bA = action
         # update current state value based on best action
         self.stateValues[tuple(currAgtObs)] = best
 
-        return(bestAction)
+        return(bA)
 
     def egreedy(self):
         if (random.random() > self.eplislon):
@@ -353,9 +353,10 @@ if (__name__=="__main__"):
                 print("### value function")
                 print(agt.stateValues)
             for i in range(100):
-                print(observation)
+                #print(observation)
                 print(agt.obsFromState(observation))
                 action = agt.bestAction()
+                print(action)
                 #action = env.action_space.sample()
                 observation, reward, done, info = env.step(action)
             print("### value function")
