@@ -308,10 +308,6 @@ class Agent():
             if (stateActionValue > best):
                 best = stateActionValue
                 bA = action
-            print("action: {}".format(action))
-            print("reward: {}".format(reward))
-            print("best: {}".format(best))
-            print("bA: {}".format(bA))
         # update current state value based on best action
         self.stateValues[tuple(currAgtObs)] = self.stateValues[tuple(currAgtObs)] \
                                         +self.alpha*(best - self.stateValues[tuple(currAgtObs)])
@@ -365,21 +361,11 @@ if (__name__=="__main__"):
             laOr = 0
             lalaOr = 0
             for i in range(100):
-                #print(observation)
                 obs = agt.obsFromState(observation)
-                print("{} <------------------------------------------------ {}".format(obs,obs[1][0][0]))
-                if(obs[1][0][0]==laOr==lalaOr):#==lalaOr):
-                    print("#####################################################################################")
-                lalaOr = laOr
-                laOr = obs[1][0][0]
-                
                 action = agt.bestAction()
-                if(action[0]==0):
-                    print("AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH ACTION 0 AHHH!!!")
-                else:
-                    print(action)
                 #action = env.action_space.sample()
                 observation, reward, done, info = env.step(action)
+                print("obs: {} reward: {}".format(obs,reward))
             print("### value function")
             print(agt.stateValues)
             #agt.load_stateValues("values.json")
