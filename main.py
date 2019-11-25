@@ -17,14 +17,15 @@ from gym import Env, spaces
 simpleTestGraph = {
         "N":5,
         "E":(
-            (1,3,2),
-            (2,3,2),
-            (2,4,3),
+            (1,3,1),
+            (2,3,1),
+            (2,4,1),
             (3,5,1),
-            (4,5,2),
+            (4,5,1),
             ),
         "maxE":3,
         }
+#optimal for this graph should be 0.2857 wins / step
 twoNodeGraph = {
         "N":2,
         "E":(
@@ -345,9 +346,12 @@ class Agent():
 printPickups = False
 printWins = False
 if (__name__=="__main__"):
+
+    # CLEAN ALL OF THIS UP!
+
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
-    env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
-    #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
+    #env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
+    env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     #env = Truckenv(trucks=2,jobs=3,graph=simpleTestGraph)
     for i_episode in range(1):
         if False:
@@ -355,31 +359,40 @@ if (__name__=="__main__"):
         if True:
             agt = Agent(env)
             observation = env.reset()
-            agt.loadStateValues("values.pkl")
-            print("### value function")
-            print(agt.stateValues)
-            if False:
-                for j in range(10):
-                    for i in range(100):
+            #agt.loadStateValues("values.pkl")
+            #print("### value function")
+            #print(agt.stateValues)
+            if True:
+                for j in range(100):
+                    cumulant = 0
+                    for i in range(1000):
                         #print(observation)
                         #print(agt.obsFromState(observation))
                         action = agt.bestAction()# this trains the agent
                         action = env.action_space.sample()
                         observation, reward, done, info = env.step(action)
-                    print("### value function")
-                    print(agt.stateValues)
+                        cumulant+=reward
+                    print("rewards in random: {}".format(cumulant))
+                    #print("### value function")
+                    #print(agt.stateValues)
                 laOr = 0
                 lalaOr = 0
             if True:
-                for i in range(100):
-                    obs = agt.obsFromState(observation)
-                    action = agt.bestAction()
-                    #action = env.action_space.sample()
-                    observation, reward, done, info = env.step(action)
-                    print("obs: {} reward: {}".format(obs,reward))
-                print("### value function")
-                print(agt.stateValues)
-            agt.saveStateValues("values.pkl")
+                for j in range(3):
+                    cumulant = 0
+                    for i in range(1000):
+                        obs = agt.obsFromState(observation)
+                        action = agt.bestAction()
+                        #action = env.action_space.sample()
+                        observation, reward, done, info = env.step(action)
+                        print("action: {} obs: {} reward: {}".format(action,obs,reward))
+                        cumulant+=reward
+                    print("rewards in best: {}".format(cumulant))
+                    #print("### value function")
+                    #print(agt.stateValues)
+            agt.saveStateValues("simpleGraph_1.pkl")
             #agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
+
+
     env.close()
 
