@@ -1,4 +1,5 @@
 
+from time import sleep
 import pickle
 from copy import deepcopy
 import random
@@ -32,8 +33,87 @@ twoNodeGraph = {
             (1,2,1),
             ),
         "maxE":1,
+        "render":
+            [[["T^---__", "T_---_^"],
+              ["t^---_#", "t#---_^"]],
+
+             [["_^---T_", "__---T^"],
+              ["_^---t#", "_#---t^"]]]
         }
 
+
+threeNTemplate="{}{}---{}{}---{}{}"
+threeNRender=[]
+for truckLoc in range(3):
+    threeNRender+=[[]]
+    for origin in range(3):
+        threeNRender[truckLoc]+=[[]]
+        for dest in range(3):
+            data=["_","_","_","_","_","_"]
+            if(origin == 0):
+                truckGlyph = "T"
+            else:
+                truckGlyph = "t"
+                if(origin<=dest):
+                    data[(origin-1)*2+1] = "#"
+                else:
+                    data[(origin)*2+1] = "#"
+            data[dest*2+1] = "^"
+            data[truckLoc*2] = truckGlyph
+
+            threeNRender[truckLoc][origin]+=[threeNTemplate.format(*data)]
+
+threeNodeGraph = {
+        "N":3,
+        "E":(
+            (1,2,1),
+            (2,3,1),
+            ),
+        "maxE":2,
+        "render":threeNRender,
+        }
+
+triangleTemplate="\n  {}{}\n /  \\\n{}{}--{}{}"
+triangleRender=[]
+for truckLoc in range(3):
+    triangleRender+=[[]]
+    for origin in range(3):
+        triangleRender[truckLoc]+=[[]]
+        for dest in range(3):
+            data=["_","_","_","_","_","_"]
+            if(origin == 0):
+                truckGlyph = "T"
+            else:
+                truckGlyph = "t"
+                if(origin<=dest):
+                    data[(origin-1)*2+1] = "#"
+                else:
+                    data[(origin)*2+1] = "#"
+            data[dest*2+1] = "^"
+            data[truckLoc*2] = truckGlyph
+
+            triangleRender[truckLoc][origin]+=[triangleTemplate.format(*data)]
+
+triangleGraph = {
+        "N":3,
+        "E":(
+            (1,2,1),
+            (1,3,1),
+            (2,3,1),
+            ),
+        "maxE":2,
+        "render":triangleRender,
+        }
+
+def ndindex(nd,index):
+ if(len(index)==1):
+  return(nd[index[0]])
+ else:
+  return(ndindex(nd[index[0]],index[1:]))
+def readableAction(action):
+    if(action<4):
+        return(["back","pick","drop","hold"][action])
+    return("go:{}".format(action-4))
 
 #######
 # Env #
@@ -56,6 +136,41 @@ class Truckenv(Env):
         reward_range: A tuple corresponding to the min and max possible rewards
     Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
     """
+
+    def simpleObs(self):
+        state = (self.trucks,self.jobs)
+        obs = [[],[]]
+        # trucks
+        for i in range(self.nTrucks):
+            obs[0]+=[state[0][i][0]]
+        # jobs
+        for i in range(self.nJobs):
+            origin = None
+            if(state[1][i][2]!=-1):#status not on truck
+                origin=state[1][i][2]
+            elif (state[1][i][0]<state[1][i][1]):
+                origin=state[1][i][0]-1 +self.nTrucks # -1 because the id is offset 0 if there is one truck
+            else:
+                origin=state[1][i][0]-2 +self.nTrucks # -2 because truck thing and origin never = destination
+            obs[1]+=[[origin,state[1][i][1]]]
+        return (tuple(obs))
+
+    def simpleObsFlat(self):
+        """When indexing a ndarray you need all the truck and job values in one flat list"""
+        obs = self.simpleObs()
+        obsFlat = [x-1 for x in obs[0]]
+        for x in obs[1]:
+            obsFlat+=[x[0],x[1]-1]
+        return(obsFlat)
+
+    def render(self,end="\n"):
+        """
+        This will throw an exception if your graph doesn't have a render doodad in it.
+        """
+        nd = self.graph["render"]
+        index = self.simpleObsFlat()
+        print(ndindex(nd,index),end=end)
+        sleep(1)
 
     def __init__(self,trucks=1,jobs=1,graph=simpleTestGraph):
 
@@ -249,7 +364,7 @@ class Agent():
         print("There are {} distinct observable states.".format(nStates))
 
         self.stateValues = np.ndarray((nTruckPos,)*nTrucks+(nOrigins,nDest)*nJobs)
-        self.stateValues.fill(0)
+        self.stateValues.fill(30)
         print("%d bytes" % (self.stateValues.size * self.stateValues.itemsize))
         print("%d kilobytes" % (self.stateValues.size * self.stateValues.itemsize / 1024))
         print("%d megabytes" % (self.stateValues.size * self.stateValues.itemsize /1024 /1024))
@@ -260,34 +375,10 @@ class Agent():
         #self.policy = np.array((0,)*nStates)
         #(self.graph["N"],)*self.nTrucks + (self.graph["N"],self.graph["N"])*self.nJobs)
 
-    def obsFromState(self,state):
-        obs = [[],[]]
-        # trucks
-        for i in range(0,self.env.nTrucks):
-            obs[0]+=[state[0][i][0]]
-        # jobs
-        for i in range(0,self.env.nJobs):
-            origin = None
-            if(state[1][i][2]!=-1):
-                origin=state[1][i][2]
-            elif (state[1][i][0]<state[1][i][1]):
-                origin=state[1][i][0]-1 +self.env.nTrucks # -1 because the id is offset 0 if there is one truck
-            else:
-                origin=state[1][i][0]-2 +self.env.nTrucks # -2 because truck thing and origin never = destination
-            obs[1]+=[[origin,state[1][i][1]]]
-        return (tuple(obs))
-
-    def stateToObsFlat(self,state):
-        """When indexing a ndarray you need all the truck and job values in one flat list"""
-        obs = self.obsFromState(state)
-        obsFlat = [x-1 for x in obs[0]]
-        for x in obs[1]:
-            obsFlat+=[x[0],x[1]-1]
-        return(obsFlat)
 
     def bestAction(self,maxLookahead=5):
         # current observation
-        currAgtObs = self.stateToObsFlat((self.env.trucks,self.env.jobs))
+        currAgtObs = self.env.simpleObsFlat()#self.stateToObsFlat((self.env.trucks,self.env.jobs))
         # setup and find action leading to best new observation
         best = 0
         bA = self.env.actions[0]
@@ -298,15 +389,18 @@ class Agent():
             ## TODO: THIS ALGORITHM COULD BE BETTER STREAMLINED
             if(all(x<4 for x in action)):
                 observation, reward, done, info = testEnv.step(action)
-                newAgtObs = self.stateToObsFlat(observation)
+                newAgtObs = testEnv.simpleObsFlat()#self.stateToObsFlat(observation)
             else:
                 for i in range(maxLookahead):
                     observation, reward, done, info = testEnv.step(action)
-                    newAgtObs = self.stateToObsFlat(observation)
+                    newAgtObs = testEnv.simpleObsFlat()#self.stateToObsFlat(observation)
                     if(currAgtObs!=newAgtObs or reward!=0):#why? because it won't work right if it doesn't see the environment change based on its actions
                         break
             ## compare this hypothetical to the other actions
-            stateActionValue = reward + self.gamma*self.stateValues[tuple(newAgtObs)]
+            try:
+                stateActionValue = reward + self.gamma*self.stateValues[tuple(newAgtObs)]
+            except:
+                raise Exception("Observation outside state space.\nDid you remember to initialize environment with reset function?")
             if (stateActionValue > best):
                 best = stateActionValue
                 bA = action
@@ -339,6 +433,42 @@ class Agent():
             pass
 
 
+
+## Training demonstration:
+
+
+def trial(agt,env,demo_len):
+    for i in range(demo_len):
+        env.render(end="")
+        action = agt.bestAction()
+        print("    ",end="")
+        print(readableAction(action[0]),end="")
+        print("    ",end="")
+        observation, reward, done, info = env.step(action)
+        if(reward):
+            print("Win!")
+        else:
+            print("meh.")
+
+def training_demo(agt,env, demo_len = 13, train_len = 10, train_epoch = 3):
+    for j in range(train_epoch):
+        observation = env.reset()
+        print("### value function")
+        print(agt.stateValues)
+        trial(agt,env,demo_len)
+        print("        "+"_"*train_len)
+        print("training",end="",flush=True)
+        for k in range(train_len):
+            print(".",end="",flush=True)
+            for i in range(200):
+                action = agt.bestAction()
+                observation, reward, done, info = env.step(action)
+        print()
+    observation = env.reset()
+    print("### value function")
+    print(agt.stateValues)
+    trial(agt,env,demo_len)
+
 ########
 # Main #
 ########
@@ -347,52 +477,26 @@ printPickups = False
 printWins = False
 if (__name__=="__main__"):
 
-    # CLEAN ALL OF THIS UP!
-
     #env = gym.make("gym-trucks:trucks-v0") ## <-- this is how it would look if integrated nicely into gym.
     #env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
-    env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
+    env = Truckenv(trucks=1,jobs=1,graph=threeNodeGraph)
+    #env = Truckenv(trucks=1,jobs=2,graph=simpleTestGraph)
     #env = Truckenv(trucks=2,jobs=3,graph=simpleTestGraph)
-    for i_episode in range(1):
-        if False:
-            doRandomPolicy(env)
-        if True:
-            agt = Agent(env)
-            observation = env.reset()
-            #agt.loadStateValues("values.pkl")
-            #print("### value function")
-            #print(agt.stateValues)
-            if True:
-                for j in range(100):
-                    cumulant = 0
-                    for i in range(1000):
-                        #print(observation)
-                        #print(agt.obsFromState(observation))
-                        action = agt.bestAction()# this trains the agent
-                        action = env.action_space.sample()
-                        observation, reward, done, info = env.step(action)
-                        cumulant+=reward
-                    print("rewards in random: {}".format(cumulant))
-                    #print("### value function")
-                    #print(agt.stateValues)
-                laOr = 0
-                lalaOr = 0
-            if True:
-                for j in range(3):
-                    cumulant = 0
-                    for i in range(1000):
-                        obs = agt.obsFromState(observation)
-                        action = agt.bestAction()
-                        #action = env.action_space.sample()
-                        observation, reward, done, info = env.step(action)
-                        print("action: {} obs: {} reward: {}".format(action,obs,reward))
-                        cumulant+=reward
-                    print("rewards in best: {}".format(cumulant))
-                    #print("### value function")
-                    #print(agt.stateValues)
-            agt.saveStateValues("simpleGraph_1.pkl")
-            #agt.train(value_dump_method = "overwrite", value_dump_file="values.json", statistics_file="stats.txt")
 
-
+### 2 node graph
+    env = Truckenv(trucks=1,jobs=1,graph=twoNodeGraph)
+    agt = Agent(env)
+    training_demo(agt,env, demo_len = 13, train_len = 5, train_epoch = 1)
     env.close()
 
+### 3 node graph
+    env = Truckenv(trucks=1,jobs=1,graph=threeNodeGraph)
+    agt = Agent(env)
+    training_demo(agt,env, demo_len = 13, train_len = 15, train_epoch = 2)
+    env.close()
+
+### triangle graph
+    env = Truckenv(trucks=1,jobs=1,graph=triangleGraph)
+    agt = Agent(env)
+    training_demo(agt,env, demo_len = 13, train_len = 20, train_epoch = 2)
+    env.close()
